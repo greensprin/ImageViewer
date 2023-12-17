@@ -46,15 +46,15 @@ window.addEventListener("load", function () {
             // 拡張子を確認し、".bin"ファイルの場合は、一度bmpに変換して出力する
             ext = image_path.split(".").slice(-1)[0]
             if (ext === "bin") {
-                // TODO
-                // ここにbin --> bmpに変換する処理を記載する
-                // renderer側では処理できないので、mainプロセス側にパスを渡した後、
-                // mainプロセス側で変換処理を行う。
                 // その後、変換後の画像を"tmp"フォルダに一時保存し、その画像のパスを返す (もしくは一定の名前にしておけば特に受け取らなくてもいいかも?)
                 window.api.sendDropFile(image_path) // bin --> bmp 変換 (外部pythonスクリプト実行)
+
                 let image_path_split = image_path.split(".")
                 image_path_split[image_path_split.length - 1] = "bmp" // 拡張子を bin --> bmp に変更する
                 image_path = image_path_split.join(".")
+
+                image_path_split = image_path.replace(/\\/g, "/").split("/")
+                image_path = `tmp/${image_path_split[image_path_split.length - 1]}`
 
                 let sleep_cnt = 0
                 let id = setInterval(function() {
@@ -62,7 +62,9 @@ window.addEventListener("load", function () {
                     const existFile_promise = window.api.existFile(image_path)
                     existFile_promise.then((result, failres) => { // promise objectの使い方がよくわかっていない
                         // 存在した場合は処理を停止する
-                        if (result === true) {
+                        if (result !== false) {
+                            // 一応image_pathを更新しておく
+                            image_path = result
                             // 画像読み込み
                             readImageData(image_path, i + update_image_offset)
                             // カウント削除
@@ -73,13 +75,13 @@ window.addEventListener("load", function () {
                         sleep_cnt++
 
                         // 10秒経過してもファイルが存在しない場合は処理を中止する (10秒以上たってから画像が生成された場合は、ドラッグなど再描画する処理を行うと表示される)
-                        if (sleep_cnt === 10 && result === false) {
+                        if (sleep_cnt === 100 && result === false) {
                             console.log(`[ERROR] ${image_path} is not found.`)
                             // カウント削除
                             clearInterval(id)
                         }
                     })
-                }, 1000)
+                }, 100)
             } else {
                 // 画像読み込み
                 readImageData(image_path, i + update_image_offset)

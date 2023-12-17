@@ -91,5 +91,12 @@ ipcMain.handle("sendDropFile", function (e, args) {
 // ファイルが存在するかを確認する
 ipcMain.handle("existFile", function(e, args) {
     const filepath = args
-    return fs.existsSync(filepath)
+
+    let result = false
+
+    if (fs.existsSync(filepath) === true) {
+        result = path.resolve(filepath)
+    }
+
+    return result
 })
