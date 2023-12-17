@@ -16,6 +16,8 @@ let gui = null;
 const pjdir = process.cwd() //  = ProjectNameDir/
 const config = ini.parse(fs.readFileSync(path.join(pjdir, "/setting/config.ini"), "utf8"));
 
+let tmp_image_list = []
+
 app.on( 'ready', () =>
 {
     let win_option = {
@@ -51,6 +53,14 @@ app.on( 'ready', () =>
     gui.on("close", () => {
         // Main -> Renderer処理を終了させる
         // clearInterval(timerID);
+        
+        // 作成した一時ファイルを削除する (ファイルパス指定なので、誤った削除はしないはず)
+        for (let i = 0; i < tmp_image_list.length; i++) {
+            fs.unlink(tmp_image_list[i], (err) => {
+                if (err) throw err;
+                console.log(`${tmp_image_list[i]} was deleted.`)
+            })
+        }
     })
 } )
 
@@ -60,9 +70,9 @@ app.on( 'ready', () =>
 // Dropされた時の動作
 ipcMain.handle("sendDropFile", function (e, args) {
     // コマンド作成
-    const image_path = args
+    const path_list = args
     const script = config.drop.script
-    let cmd = `python ${script} ${image_path}`
+    let cmd = `python ${script} ${path_list[0]} ${path_list[1]}`
     console.log(cmd)
 
     // コマンド文字列を整形
@@ -76,6 +86,7 @@ ipcMain.handle("sendDropFile", function (e, args) {
     // 標準出力を取得して表示
     child.stdout.on("data", (data) => {
         process.stdout.write(data.toString());
+        tmp_image_list.push(data.toString().replace(/\r?\n/g, ""))
     })
 
     // エラー出力を取得して表示

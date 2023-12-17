@@ -46,27 +46,30 @@ window.addEventListener("load", function () {
             // 拡張子を確認し、".bin"ファイルの場合は、一度bmpに変換して出力する
             ext = image_path.split(".").slice(-1)[0]
             if (ext === "bin") {
-                // その後、変換後の画像を"tmp"フォルダに一時保存し、その画像のパスを返す (もしくは一定の名前にしておけば特に受け取らなくてもいいかも?)
-                window.api.sendDropFile(image_path) // bin --> bmp 変換 (外部pythonスクリプト実行)
+                // 出力ファイル名作成 (日時を名前にすることで、同名ファイルがドロップされても名前が被らないようにする)
+                const now_date = new Date();
+                const year     = now_date.getFullYear()
+                const month    = String(now_date.getMonth()).padStart(2, "0")
+                const day      = String(now_date.getDate()).padStart(2, "0")
+                const hour     = String(now_date.getHours()).padStart(2, "0")
+                const minutes  = String(now_date.getMinutes()).padStart(2, "0")
+                const second   = String(now_date.getSeconds()).padStart(2, "0")
+                let out_path   = `tmp/tmp_image_file_${year}${month}${day}_${hour}${minutes}${second}.bmp`
 
-                let image_path_split = image_path.split(".")
-                image_path_split[image_path_split.length - 1] = "bmp" // 拡張子を bin --> bmp に変更する
-                image_path = image_path_split.join(".")
-
-                image_path_split = image_path.replace(/\\/g, "/").split("/")
-                image_path = `tmp/${image_path_split[image_path_split.length - 1]}`
+                // bin --> bmp 変換 (外部pythonスクリプト実行)
+                window.api.sendDropFile([image_path, out_path])
 
                 let sleep_cnt = 0
                 let id = setInterval(function() {
                     // bmpファイルが存在するかを確認
-                    const existFile_promise = window.api.existFile(image_path)
+                    const existFile_promise = window.api.existFile(out_path)
                     existFile_promise.then((result, failres) => { // promise objectの使い方がよくわかっていない
                         // 存在した場合は処理を停止する
                         if (result !== false) {
                             // 一応image_pathを更新しておく
-                            image_path = result
+                            out_path = result
                             // 画像読み込み
-                            readImageData(image_path, i + update_image_offset)
+                            readImageData(out_path, i + update_image_offset)
                             // カウント削除
                             clearInterval(id)
                         }
@@ -76,7 +79,7 @@ window.addEventListener("load", function () {
 
                         // 10秒経過してもファイルが存在しない場合は処理を中止する (10秒以上たってから画像が生成された場合は、ドラッグなど再描画する処理を行うと表示される)
                         if (sleep_cnt === 100 && result === false) {
-                            console.log(`[ERROR] ${image_path} is not found.`)
+                            console.log(`[ERROR] ${out_path} is not found.`)
                             // カウント削除
                             clearInterval(id)
                         }
@@ -368,6 +371,8 @@ window.addEventListener("load", function () {
 
             // 画像リストを一時的に重ね合わせる画像のパスですべて上書きする
             for (let i = 0; i < canvas_num; i++) {
+                if (i === canvas_id) continue // 比較元の画像の時は何もしない
+
                 if (i in image_data_dict) {
                     image_data_dict[i]["path"]   = image_data_dict[canvas_id]["path"]
                     image_data_dict[i]["canvas"] = image_data_dict[canvas_id]["canvas"]
