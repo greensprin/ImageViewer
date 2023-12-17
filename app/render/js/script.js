@@ -369,6 +369,9 @@ window.addEventListener("load", function () {
             // image_data_dictをコピーしておく (deep copy)
             image_data_dict_copy = copyImageDataDict(image_data_dict)
 
+            // クリックされたcanvasに画像がない場合は処理しない
+            if ((canvas_id in image_data_dict) === false) return
+
             // 画像リストを一時的に重ね合わせる画像のパスですべて上書きする
             for (let i = 0; i < canvas_num; i++) {
                 if (i === canvas_id) continue // 比較元の画像の時は何もしない
