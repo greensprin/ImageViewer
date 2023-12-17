@@ -1,0 +1,47 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    background-color: gray;
+}
+
+canvas {
+    border-left : solid 1px black;
+    border-right: solid 1px black;
+}
+
+#viewer-container {
+    display: flex;
+    width : 100%;
+}
+
+#zoom-ratio-container {
+    display: inline-block;
+    position: fixed;
+    right : 0;
+    bottom: 0;
+
+    background-color: #000;
+    opacity: 0;
+    
+    padding: 5px 10px;
+
+    #zoom-ratio {
+        color: white;
+    }
+}
+
+.canvas-container {
+    position: relative;
+
+    .compare-button {
+        position: absolute;
+        top : 0;
+        left: 0;
+        padding: 5px 10px;
+    }
+}

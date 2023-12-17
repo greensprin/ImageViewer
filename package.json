@@ -1,0 +1,34 @@
+{
+  "name": "imageviewer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:linux": "electron-builder --linux",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "build": {
+    "productName": "ImageViewer",
+    "appId": "com.example.app",
+    "win": {
+      "target": "zip"
+    },
+    "linux": {
+      "target": "zip"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "electron-log": "^5.0.1",
+    "ini": "^4.1.1",
+    "python-shell": "^5.0.0"
+  }
+}
