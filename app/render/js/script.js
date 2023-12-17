@@ -11,7 +11,9 @@ window.addEventListener("load", function () {
     let dx = 0
     let dy = 0
     let zoom = 1
-    let file_path_list = []
+
+    // 画像データ格納先
+    let image_data_dict = {}
 
     // 初期canvas追加
     let canvas_num = 1
@@ -32,9 +34,13 @@ window.addEventListener("load", function () {
         // ファイルパス取得
         const files = e.dataTransfer.files
 
+        // dropされた位置を計算し、listのどこから画像を更新するか判定する
+        const CANVAS_X = Math.round(window.innerWidth / canvas_num)
+        const update_image_offset = Math.floor(e.pageX / CANVAS_X) // どのcanvasから画像更新するかのoffset
+
         // ファイルパスをリストに一時格納
-        let file_path_list_tmp = []
         for (let i = 0; i < files.length; i++) {
+            // 画像パス設定
             let image_path = files[i].path
 
             // 拡張子を確認し、".bin"ファイルの場合は、一度bmpに変換して出力する
@@ -45,42 +51,47 @@ window.addEventListener("load", function () {
                 // renderer側では処理できないので、mainプロセス側にパスを渡した後、
                 // mainプロセス側で変換処理を行う。
                 // その後、変換後の画像を"tmp"フォルダに一時保存し、その画像のパスを返す (もしくは一定の名前にしておけば特に受け取らなくてもいいかも?)
+                window.api.sendDropFile(image_path) // bin --> bmp 変換 (外部pythonスクリプト実行)
+                let image_path_split = image_path.split(".")
+                image_path_split[image_path_split.length - 1] = "bmp" // 拡張子を bin --> bmp に変更する
+                image_path = image_path_split.join(".")
+
+                let sleep_cnt = 0
+                let id = setInterval(function() {
+                    // bmpファイルが存在するかを確認
+                    const existFile_promise = window.api.existFile(image_path)
+                    existFile_promise.then((result, failres) => { // promise objectの使い方がよくわかっていない
+                        // 存在した場合は処理を停止する
+                        if (result === true) {
+                            // 画像読み込み
+                            readImageData(image_path, i + update_image_offset)
+                            // カウント削除
+                            clearInterval(id)
+                        }
+
+                        // sleep カウントを増やす (時間計測)
+                        sleep_cnt++
+
+                        // 10秒経過してもファイルが存在しない場合は処理を中止する (10秒以上たってから画像が生成された場合は、ドラッグなど再描画する処理を行うと表示される)
+                        if (sleep_cnt === 10 && result === false) {
+                            console.log(`[ERROR] ${image_path} is not found.`)
+                            // カウント削除
+                            clearInterval(id)
+                        }
+                    })
+                }, 1000)
+            } else {
+                // 画像読み込み
+                readImageData(image_path, i + update_image_offset)
             }
-
-            file_path_list_tmp.push(image_path)
-        }
-
-        // 現在のファイルパスリストを更新する
-        const pre_file_path_list_length = file_path_list.length
-
-        // dropされた位置を計算し、listのどこから画像を更新するか判定する
-        const CANVAS_X = Math.round(window.innerWidth / canvas_num)
-        const update_image_offset = Math.floor(e.pageX / CANVAS_X) // どのcanvasから画像更新するかのoffset
-
-        // 画像更新 or 追加
-        for (let i = 0; i < file_path_list_tmp.length; i++) {
-            // file_path_listの長さが足りてなかったら先に拡張しておく
-            // こうすることで、意図通りの場所に画像を表示させることができる
-            // 削除側には処理していない. また上限も設定していない
-            if ((i + update_image_offset) >= pre_file_path_list_length) {
-                for (let j = 0; j < (update_image_offset + 1) - pre_file_path_list_length; j++) {
-                    file_path_list.push("")
-                }
-            }
-
-            // 画像更新
-            file_path_list[i + update_image_offset] = file_path_list_tmp[i]
         }
 
         // canvas_numが入力された画像よりも小さい場合は、canvasを追加する
-        if (canvas_num < file_path_list.length) {
-            canvas_num = file_path_list.length
+        if (canvas_num < files.length + update_image_offset) {
+            canvas_num = files.length + update_image_offset
             addCanvas(canvas_num)
+            drawCanvas()
         }
-
-        drawCanvas()
-
-        // window.api.sendDropFile(file_path_list)
     }
 
     // - キーボード操作
@@ -241,6 +252,7 @@ window.addEventListener("load", function () {
 
     // - resize時動作
     this.window.addEventListener("resize", function (e) {
+        addCanvas(canvas_num)
         drawCanvas()
     })
 
@@ -262,6 +274,9 @@ window.addEventListener("load", function () {
             // canvasオブジェクト生成
             let canvas = document.createElement("canvas")
             canvas.className = "viewer-canvas"
+            // canvas サイズ設定
+            canvas.width  = Math.round(window.innerWidth / canvas_num)
+            canvas.height = window.innerHeight
 
             // 比較用ボタン作成
             let compare_button = document.createElement("button")
@@ -291,53 +306,54 @@ window.addEventListener("load", function () {
         let MAX_DWIDTH  = 0
         let MAX_DHEIGHT = 0
         for (let i = 0; i < loop_length; i++) {
-            const canvas = canvas_list[i]
+            if (i in image_data_dict) {
+                // 表示する画像を取得
+                const target_canvas = image_data_dict[i]["canvas"]
+                const image_width = target_canvas.width
+                const image_height = target_canvas.height
 
-            if (i < file_path_list.length) {
-                // 画像がある場合は、画像表示
-                const image_path = file_path_list[i]
+                // canvas取得
+                const canvas = canvas_list[i]
 
-                // 画像設定
-                let image = new Image()
-                image.src = image_path
+                // コンテキスト取得
+                const ctx = canvas.getContext("2d", { willReadFrequently: true })
 
-                image.addEventListener("load", function () {
-                    // canvas サイズ設定
-                    canvas.width  = Math.round(window.innerWidth  / loop_length)
-                    canvas.height = window.innerHeight // Math.round(window.innerHeight / loop_length)
+                // 最近傍補間で拡大する (拡大時、エッジをスムーズに補間しない)
+                ctx.imageSmoothingEnabled = false
 
-                    // コンテキスト取得
-                    let ctx = canvas.getContext("2d", {willReadFrequently: true})
-                    ctx.imageSmoothingEnabled = false // 最近傍補間で拡大する (拡大時、エッジをスムーズに補間しない)
+                // 一度canvasを非表示にする (描画高速化のため)
+                canvas.style.visibility = "hidden"
 
-                    // 画像描画
-                    let dWidth  = Math.round(image.width  * zoom)
-                    let dHeight = Math.round(image.height * zoom)
-                    MAX_DWIDTH  = Math.max(MAX_DWIDTH , dWidth ) // 小さいサイズの画像に引っ張られてうまく移動できなくなることを防ぐため
-                    MAX_DHEIGHT = Math.max(MAX_DHEIGHT, dHeight) // 小さいサイズの画像に引っ張られてうまく移動できなくなることを防ぐため
-                    dx = Math.min(canvas.width , Math.max(-MAX_DWIDTH , START_X + MOVE_X))
-                    dy = Math.min(canvas.height, Math.max(-MAX_DHEIGHT, START_Y + MOVE_Y))
-                    ctx.drawImage(image, dx, dy, dWidth, dHeight)
+                // 表示場所計算
+                let dWidth  = Math.round(image_width  * zoom)
+                let dHeight = Math.round(image_height * zoom)
+                MAX_DWIDTH  = Math.max(MAX_DWIDTH , dWidth)   // 小さいサイズの画像に引っ張られてうまく移動できなくなることを防ぐため
+                MAX_DHEIGHT = Math.max(MAX_DHEIGHT, dHeight) // 小さいサイズの画像に引っ張られてうまく移動できなくなることを防ぐため
+                dx = Math.min(canvas.width , Math.max(-MAX_DWIDTH , START_X + MOVE_X))
+                dy = Math.min(canvas.height, Math.max(-MAX_DHEIGHT, START_Y + MOVE_Y))
 
-                    // zoom倍率を表示
-                    // 初期はcssで透明化させているので、半透明で表示させる
-                    zoom_ratio_container = document.getElementById("zoom-ratio-container")
-                    zoom_ratio_container.style.opacity = 0.5
-                    // ズーム倍率を記載
-                    p_zoom_ratio = document.getElementById("zoom-ratio")
-                    p_zoom_ratio.textContent = `zoom: ${Math.round(zoom * 100)}%`
-                })
-            } else {
-                // 画像がない場合は、サイズだけ指定
-                // canvas サイズ設定
-                canvas.width  = Math.round(window.innerWidth  / loop_length)
-                canvas.height = window.innerHeight // Math.round(window.innerHeight / loop_length)
+                // 描画内容を一度削除する
+                ctx.clearRect(0, 0, canvas.width, canvas.height)
+                // 描画
+                ctx.drawImage(target_canvas, dx, dy, dWidth, dHeight)
+
+                // - zoom倍率を表示
+                // 初期はcssで透明化させているので、半透明で表示させる
+                zoom_ratio_container = document.getElementById("zoom-ratio-container")
+                zoom_ratio_container.style.opacity = 0.5
+
+                // ズーム倍率を記載
+                p_zoom_ratio = document.getElementById("zoom-ratio")
+                p_zoom_ratio.textContent = `zoom: ${Math.round(zoom * 100)}%`
+
+                // 再度canvasを表示する (描画高速化のため)
+                canvas.style.visibility = "visible"
             }
         }
     }
 
     // - compare buttonの動作
-    let file_path_list_copy = []
+    let image_data_dict_copy = {}
     function CompareButtonDown(e) {
         // idからクリックされたボタンを把握する
         const canvas_id = Number(this.id.replace("compare-button-id", ""))
@@ -345,15 +361,20 @@ window.addEventListener("load", function () {
         if (e.button === 0) {
             // 左クリックで押された場合 --> 重ね合わせする
 
-            // 各canvasの画像パスをコピーしておく
-            file_path_list_copy = file_path_list.concat()
-
-            // 重ね合わせる画像パスを取得する
-            const target_image = file_path_list[canvas_id]
+            // image_data_dictをコピーしておく (deep copy)
+            image_data_dict_copy = copyImageDataDict(image_data_dict)
 
             // 画像リストを一時的に重ね合わせる画像のパスですべて上書きする
-            for (let i = 0; i < file_path_list.length; i++) {
-                file_path_list[i] = target_image
+            for (let i = 0; i < canvas_num; i++) {
+                if (i in image_data_dict) {
+                    image_data_dict[i]["path"]   = image_data_dict[canvas_id]["path"]
+                    image_data_dict[i]["canvas"] = image_data_dict[canvas_id]["canvas"]
+                } else {
+                    image_data_dict[i] = {
+                        "path"  : image_data_dict[canvas_id]["path"],
+                        "canvas": image_data_dict[canvas_id]["canvas"],
+                    }
+                }
             }
 
             drawCanvas()
@@ -362,7 +383,7 @@ window.addEventListener("load", function () {
         } else {
             // 右クリックで押された場合 --> 差分表示 (未実装)
 
-            const canvas_list = document.getElementsByClassName("viewer-canvas")
+            const canvas_list   = document.getElementsByClassName("viewer-canvas")
             const target_canvas = canvas_list[canvas_id]
             const target_ctx    = target_canvas.getContext("2d", {willReadFrequently: true})
             const target_image  = target_ctx.getImageData(0, 0, target_canvas.width, target_canvas.height)
@@ -374,19 +395,18 @@ window.addEventListener("load", function () {
                     // その他の画像は、差分を計算して表示する
                     const canvas = canvas_list[i]
                     const ctx    = canvas.getContext("2d", {willReadFrequently: true})
-                    const image  = ctx.getImageData(0, 0, target_image.width, target_image.height) // あえてtarget_imageのがサイズに合わせておく (canvas.{width,height}でもたぶん変わらないと思う)
+                    const image  = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
                     // RBGAの順番で一次元配列に格納されているのでwidth * height * 4のサイズだけループを回している
-                    const dst = ctx.createImageData(target_image.width, target_image.height)
-                    for (let j = 0 ; j < target_image.width * target_image.height * 4; j += 4) {
-                        dst.data[j + 0] = Math.max(0, Math.min(255, target_image.data[j + 0] - image.data[j + 0] + 128)) // R
-                        dst.data[j + 1] = Math.max(0, Math.min(255, target_image.data[j + 1] - image.data[j + 1] + 128)) // G
-                        dst.data[j + 2] = Math.max(0, Math.min(255, target_image.data[j + 2] - image.data[j + 2] + 128)) // B
-                        dst.data[j + 3] = 255 // A(透明度)は変えない
+                    for (let j = 0 ; j < canvas.width * canvas.height * 4; j += 4) {
+                        image.data[j + 0] = Math.max(0, Math.min(255, target_image.data[j + 0] - image.data[j + 0] + 128)) // R
+                        image.data[j + 1] = Math.max(0, Math.min(255, target_image.data[j + 1] - image.data[j + 1] + 128)) // G
+                        image.data[j + 2] = Math.max(0, Math.min(255, target_image.data[j + 2] - image.data[j + 2] + 128)) // B
+                        image.data[j + 3] = 255 // A(透明度)は変えない
                     }
 
                     // 差分画像を書き込み
-                    ctx.putImageData(dst, 0, 0)
+                    ctx.putImageData(image, 0, 0)
                 }
             }
         }
@@ -395,14 +415,48 @@ window.addEventListener("load", function () {
     function CompareButtonUp(e) {
         if (e.button === 0) {
             // 画像リストを元に戻す
-            file_path_list = file_path_list_copy.concat()
-
+            image_data_dict = copyImageDataDict(image_data_dict_copy)
             drawCanvas() // 表示を元に戻す
         } else if (e.button === 1) {
-
         } else {
             drawCanvas() // 表示を元に戻す
         }
+    }
+
+    function readImageData(filepath, num) {
+        // 画像を読み込む
+        const image = new Image()
+        image.src = filepath
+
+        image.addEventListener("load", function() {
+            // 一度canvasに書き込む
+            const canvas    = document.createElement("canvas")
+            canvas.width  = image.naturalWidth
+            canvas.height = image.naturalHeight
+
+            const ctx = canvas.getContext("2d", {willReadFrequently: true})
+            ctx.drawImage(image, 0, 0)
+
+            image_data_dict[num] = {
+                "path"   : filepath,
+                "canvas" : canvas,
+            }
+
+            drawCanvas()
+        })
+    }
+
+    function copyImageDataDict(src_dict) {
+        let dst_dict = {}
+
+        for (let i = 0; i < Object.keys(src_dict).length; i++) {
+            dst_dict[i] = {
+                "path"  : src_dict[i]["path"],
+                "canvas": src_dict[i]["canvas"],
+            }
+        }
+
+        return dst_dict
     }
 
     // // renderer -> main
