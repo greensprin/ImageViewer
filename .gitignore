@@ -2,3 +2,5 @@ tmp/*
 node_modules/*
 dist/*
 image/*
+.env/*
+tools/extend.py

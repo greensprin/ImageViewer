@@ -182,39 +182,43 @@ window.addEventListener("load", function () {
     this.document.onwheel = function(e) {
         // 拡大縮小の上限加減
         const MAX_ZOOM = 50
-        const MIN_ZOOM = 0.1
+        const MIN_ZOOM = 1 // 0.1
 
         // 拡大縮小の選択
         let zoom_ratio = 0
         if (e.deltaY < 0) {
-            if (zoom < 1) {
-                zoom_ratio = 0.05
-            } else if (zoom < 2) {
-                zoom_ratio = 0.1
-            } else if (zoom < 5) {
-                zoom_ratio = 0.2
-            } else if (zoom < 10) {
-                zoom_ratio = 0.5
-            } else {
-                zoom_ratio = 1.0
-            }
+            zoom_ratio = 1.0
+            // 差分がうまく表示できないので、100%ずつ倍率を変更する
+            // if (zoom < 1) {
+            //     zoom_ratio = 0.05
+            // } else if (zoom < 2) {
+            //     zoom_ratio = 0.1
+            // } else if (zoom < 5) {
+            //     zoom_ratio = 0.2
+            // } else if (zoom < 10) {
+            //     zoom_ratio = 0.5
+            // } else {
+            //     zoom_ratio = 1.0
+            // }
 
             // すでに最大まで拡大されていたら処理をしない
             if (zoom === MAX_ZOOM) {
                 return
             }
         } else {
-            if (zoom <= 1) {
-                zoom_ratio = -0.05
-            } else if (zoom <= 2) {
-                zoom_ratio = -0.1
-            } else if (zoom <= 5) {
-                zoom_ratio = -0.2
-            } else if (zoom <= 10) {
-                zoom_ratio = -0.5
-            } else {
-                zoom_ratio = -1.0
-            }
+            zoom_ratio = -1.0
+            // 差分がうまく表示できないので、100%ずつ倍率を変更する
+            // if (zoom <= 1) {
+            //     zoom_ratio = -0.05
+            // } else if (zoom <= 2) {
+            //     zoom_ratio = -0.1
+            // } else if (zoom <= 5) {
+            //     zoom_ratio = -0.2
+            // } else if (zoom <= 10) {
+            //     zoom_ratio = -0.5
+            // } else {
+            //     zoom_ratio = -1.0
+            // }
 
             // すでに最小まで縮小されていたら処理をしない
             if (zoom === MIN_ZOOM) {
@@ -311,49 +315,50 @@ window.addEventListener("load", function () {
         let MAX_DWIDTH  = 0
         let MAX_DHEIGHT = 0
         for (let i = 0; i < loop_length; i++) {
+            // canvas取得
+            const canvas = canvas_list[i]
+
+            // 一度canvasを非表示にする (描画高速化のため)
+            canvas.style.visibility = "hidden"
+
+            // コンテキスト取得
+            const ctx = canvas.getContext("2d", { willReadFrequently: true })
+
+            // 描画内容を一度削除する
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+            // 最近傍補間で拡大する (拡大時、エッジをスムーズに補間しない)
+            ctx.imageSmoothingEnabled = false
+
             if (i in image_data_dict) {
                 // 表示する画像を取得
                 const target_canvas = image_data_dict[i]["canvas"]
-                const image_width = target_canvas.width
-                const image_height = target_canvas.height
-
-                // canvas取得
-                const canvas = canvas_list[i]
-
-                // コンテキスト取得
-                const ctx = canvas.getContext("2d", { willReadFrequently: true })
-
-                // 最近傍補間で拡大する (拡大時、エッジをスムーズに補間しない)
-                ctx.imageSmoothingEnabled = false
-
-                // 一度canvasを非表示にする (描画高速化のため)
-                canvas.style.visibility = "hidden"
+                const image_width   = target_canvas.width
+                const image_height  = target_canvas.height
 
                 // 表示場所計算
                 let dWidth  = Math.round(image_width  * zoom)
                 let dHeight = Math.round(image_height * zoom)
-                MAX_DWIDTH  = Math.max(MAX_DWIDTH , dWidth)   // 小さいサイズの画像に引っ張られてうまく移動できなくなることを防ぐため
+                MAX_DWIDTH  = Math.max(MAX_DWIDTH , dWidth)  // 小さいサイズの画像に引っ張られてうまく移動できなくなることを防ぐため
                 MAX_DHEIGHT = Math.max(MAX_DHEIGHT, dHeight) // 小さいサイズの画像に引っ張られてうまく移動できなくなることを防ぐため
                 dx = Math.min(canvas.width , Math.max(-MAX_DWIDTH , START_X + MOVE_X))
                 dy = Math.min(canvas.height, Math.max(-MAX_DHEIGHT, START_Y + MOVE_Y))
 
-                // 描画内容を一度削除する
-                ctx.clearRect(0, 0, canvas.width, canvas.height)
                 // 描画
                 ctx.drawImage(target_canvas, dx, dy, dWidth, dHeight)
-
-                // - zoom倍率を表示
-                // 初期はcssで透明化させているので、半透明で表示させる
-                zoom_ratio_container = document.getElementById("zoom-ratio-container")
-                zoom_ratio_container.style.opacity = 0.5
-
-                // ズーム倍率を記載
-                p_zoom_ratio = document.getElementById("zoom-ratio")
-                p_zoom_ratio.textContent = `zoom: ${Math.round(zoom * 100)}%`
-
-                // 再度canvasを表示する (描画高速化のため)
-                canvas.style.visibility = "visible"
             }
+
+            // 再度canvasを表示する (描画高速化のため)
+            canvas.style.visibility = "visible"
+
+            // - zoom倍率を表示
+            // 初期はcssで透明化させているので、半透明で表示させる
+            zoom_ratio_container = document.getElementById("zoom-ratio-container")
+            zoom_ratio_container.style.opacity = 0.5
+
+            // ズーム倍率を記載
+            p_zoom_ratio = document.getElementById("zoom-ratio")
+            p_zoom_ratio.textContent = `zoom: ${Math.round(zoom * 100)}%`
         }
     }
 
@@ -401,6 +406,8 @@ window.addEventListener("load", function () {
             for (let i = 0; i < canvas_list.length; i++) {
                 if (i === canvas_id) {
                     // 比較する画像に対しては何もしない
+                } else if ((i in image_data_dict) === false) {
+                    // 画像データがないcanvasには何もしない
                 } else {
                     // その他の画像は、差分を計算して表示する
                     const canvas = canvas_list[i]

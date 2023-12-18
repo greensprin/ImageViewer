@@ -13,9 +13,6 @@ const cur_dir  = process.cwd()
 const tool_dir = process.cwd();
 let gui = null;
 
-const pjdir = process.cwd() //  = ProjectNameDir/
-const config = ini.parse(fs.readFileSync(path.join(pjdir, "/setting/config.ini"), "utf8"));
-
 let tmp_image_list = []
 
 app.on( 'ready', () =>
@@ -56,10 +53,14 @@ app.on( 'ready', () =>
         
         // 作成した一時ファイルを削除する (ファイルパス指定なので、誤った削除はしないはず)
         for (let i = 0; i < tmp_image_list.length; i++) {
-            fs.unlink(tmp_image_list[i], (err) => {
-                if (err) throw err;
-                console.log(`${tmp_image_list[i]} was deleted.`)
-            })
+            if (fs.existsSync(tmp_image_list[i]) === true) {
+                fs.unlink(tmp_image_list[i], (err) => {
+                    if (err) throw err;
+                    console.log(`${tmp_image_list[i]} was deleted.`)
+                })
+            } else {
+                console.log(`${tmp_image_list[i]} was not existed.`)
+            }
         }
     })
 } )
@@ -69,6 +70,10 @@ app.on( 'ready', () =>
 
 // Dropされた時の動作
 ipcMain.handle("sendDropFile", function (e, args) {
+    // 設定値読み込み (リアルタイムに設定反映させるためここで読み込み. 他でも使う場合、かつconfig.iniが長くなったら最初だけ読み込む形に変更を検討する)
+    const pjdir = process.cwd() //  = ProjectNameDir/
+    const config = ini.parse(fs.readFileSync(path.join(pjdir, "/setting/config.ini"), "utf8"));
+
     // コマンド作成
     const path_list = args
     const script = config.drop.script
