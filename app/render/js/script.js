@@ -18,6 +18,15 @@ window.addEventListener("load", function () {
     // 初期canvas追加
     let canvas_num = 1
     addCanvas(canvas_num)
+    
+    // - コマンドライン引数の画像パス取得
+    getCmdArgsImage_promise = this.window.api.getCmdArgsImage()
+    getCmdArgsImage_promise.then((result, failure) => {
+        for (let i = 0; i < result.length; i++) {
+            console.log(result[i])
+            ResistDictAndDraw(result[i], i)
+        }
+    })
 
     // - ドラッグアンドドロップ動作
     this.document.ondragover = function (e) {
@@ -42,53 +51,7 @@ window.addEventListener("load", function () {
         for (let i = 0; i < files.length; i++) {
             // 画像パス設定
             let image_path = files[i].path
-
-            // 拡張子を確認し、".bin"ファイルの場合は、一度bmpに変換して出力する
-            ext = image_path.split(".").slice(-1)[0]
-            if (ext === "bin") {
-                // 出力ファイル名作成 (日時を名前にすることで、同名ファイルがドロップされても名前が被らないようにする)
-                const now_date = new Date();
-                const year     = now_date.getFullYear()
-                const month    = String(now_date.getMonth()).padStart(2, "0")
-                const day      = String(now_date.getDate()).padStart(2, "0")
-                const hour     = String(now_date.getHours()).padStart(2, "0")
-                const minutes  = String(now_date.getMinutes()).padStart(2, "0")
-                const second   = String(now_date.getSeconds()).padStart(2, "0")
-                let out_path   = `tmp/tmp_image_file_${year}${month}${day}_${hour}${minutes}${second}.bmp`
-
-                // bin --> bmp 変換 (外部pythonスクリプト実行)
-                window.api.sendDropFile([image_path, out_path])
-
-                let sleep_cnt = 0
-                let id = setInterval(function() {
-                    // bmpファイルが存在するかを確認
-                    const existFile_promise = window.api.existFile(out_path)
-                    existFile_promise.then((result, failres) => { // promise objectの使い方がよくわかっていない
-                        // 存在した場合は処理を停止する
-                        if (result !== false) {
-                            // 一応image_pathを更新しておく
-                            out_path = result
-                            // 画像読み込み
-                            readImageData(out_path, i + update_image_offset)
-                            // カウント削除
-                            clearInterval(id)
-                        }
-
-                        // sleep カウントを増やす (時間計測)
-                        sleep_cnt++
-
-                        // 10秒経過してもファイルが存在しない場合は処理を中止する (10秒以上たってから画像が生成された場合は、ドラッグなど再描画する処理を行うと表示される)
-                        if (sleep_cnt === 100 && result === false) {
-                            console.log(`[ERROR] ${out_path} is not found.`)
-                            // カウント削除
-                            clearInterval(id)
-                        }
-                    })
-                }, 100)
-            } else {
-                // 画像読み込み
-                readImageData(image_path, i + update_image_offset)
-            }
+            ResistDictAndDraw(image_path, i + update_image_offset)
         }
 
         // canvas_numが入力された画像よりも小さい場合は、canvasを追加する
@@ -96,6 +59,56 @@ window.addEventListener("load", function () {
             canvas_num = files.length + update_image_offset
             addCanvas(canvas_num)
             drawCanvas()
+        }
+    }
+
+    // 辞書に画像データを登録し、描画する (画像パスと何番目に登録するかを引数に入れる)
+    function ResistDictAndDraw(image_path, i) {
+        // 拡張子を確認し、".bin"ファイルの場合は、一度bmpに変換して出力する
+        ext = image_path.split(".").slice(-1)[0]
+        if (ext === "bin") {
+            // 出力ファイル名作成 (日時を名前にすることで、同名ファイルがドロップされても名前が被らないようにする)
+            const now_date = new Date();
+            const year     = now_date.getFullYear()
+            const month    = String(now_date.getMonth()).padStart(2, "0")
+            const day      = String(now_date.getDate()).padStart(2, "0")
+            const hour     = String(now_date.getHours()).padStart(2, "0")
+            const minutes  = String(now_date.getMinutes()).padStart(2, "0")
+            const second   = String(now_date.getSeconds()).padStart(2, "0")
+            let out_path   = `tmp/tmp_image_file_${year}${month}${day}_${hour}${minutes}${second}.bmp`
+
+            // bin --> bmp 変換 (外部pythonスクリプト実行)
+            window.api.sendDropFile([image_path, out_path])
+
+            let sleep_cnt = 0
+            let id = setInterval(function() {
+                // bmpファイルが存在するかを確認
+                const existFile_promise = window.api.existFile(out_path)
+                existFile_promise.then((result, failres) => { // promise objectの使い方がよくわかっていない
+                    // 存在した場合は処理を停止する
+                    if (result !== false) {
+                        // 一応image_pathを更新しておく
+                        out_path = result
+                        // 画像読み込み
+                        readImageData(out_path, i)
+                        // カウント削除
+                        clearInterval(id)
+                    }
+
+                    // sleep カウントを増やす (時間計測)
+                    sleep_cnt++
+
+                    // 10秒経過してもファイルが存在しない場合は処理を中止する (10秒以上たってから画像が生成された場合は、ドラッグなど再描画する処理を行うと表示される)
+                    if (sleep_cnt === 100 && result === false) {
+                        console.log(`[ERROR] ${out_path} is not found.`)
+                        // カウント削除
+                        clearInterval(id)
+                    }
+                })
+            }, 100)
+        } else {
+            // 画像読み込み
+            readImageData(image_path, i)
         }
     }
 

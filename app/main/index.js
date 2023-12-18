@@ -116,3 +116,31 @@ ipcMain.handle("existFile", function(e, args) {
 
     return result
 })
+
+ipcMain.handle("getCmdArgsImage", function (e) {
+    let filepath_list = []
+    for (let i = 0; i < process.argv.length; i++) {
+        const filepath = process.argv[i + 1] // コマンドライン引数取得
+
+        // undefineはSKIP
+        if (filepath === undefined) continue
+
+        // フォルダが入力された場合はskip
+        let stats = fs.statSync(filepath)
+        if (stats.isDirectory()) {
+            console.log(`${filepath} is Directory. So, process is Skip.`)
+            continue
+        }
+
+        // ファイルが存在するかを確認（でたらめなパスが設定されているかもしれないので）
+        if (fs.existsSync(filepath) === true) {
+            // 絶対パスに変換
+            const filepath_abs = path.resolve(filepath)
+
+            // リストに追加
+            filepath_list.push(filepath_abs)
+        }
+    }
+
+    return filepath_list
+})

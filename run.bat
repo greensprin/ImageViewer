@@ -1,3 +1,3 @@
 @echo off
 
-npx electron .
+npx electron . %*
