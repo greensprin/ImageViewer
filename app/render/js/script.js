@@ -75,7 +75,7 @@ window.addEventListener("load", function () {
             const hour     = String(now_date.getHours()).padStart(2, "0")
             const minutes  = String(now_date.getMinutes()).padStart(2, "0")
             const second   = String(now_date.getSeconds()).padStart(2, "0")
-            let out_path   = `tmp/tmp_image_file_${year}${month}${day}_${hour}${minutes}${second}.bmp`
+            let out_path   = `tmp/tmp_image_file_${year}${month}${day}_${hour}${minutes}${second}_${i}.bmp`
 
             // bin --> bmp 変換 (外部pythonスクリプト実行)
             window.api.sendDropFile([image_path, out_path])
@@ -126,26 +126,30 @@ window.addEventListener("load", function () {
             // 拡大縮小率変更
             zoom = Math.max(Number(e.key), 1) // 0の時も100%になるようにする
 
-            // 倍率が同じだったら処理しない
-            if (pre_zoom === zoom) {
-                return
+            // 倍率が同じだったら拡縮の処理は行わない
+            if (pre_zoom !== zoom) {
+                // 表示位置中央に拡大縮小するように座標調整
+                const CENTER_X = (window.innerWidth  / canvas_num) / 2
+                const CENTER_Y = window.innerHeight / 2
+
+                const ImageX = CENTER_X - START_X
+                const ImageY = CENTER_Y - START_Y
+
+                const ZoomX = Math.round(ImageX * (zoom / pre_zoom))
+                const ZoomY = Math.round(ImageY * (zoom / pre_zoom))
+
+                const DiffX = ZoomX - ImageX
+                const DiffY = ZoomY - ImageY
+
+                START_X = START_X - DiffX
+                START_Y = START_Y - DiffY
             }
-            
-            // 表示位置中央に拡大縮小するように座標調整
-            const CENTER_X = (window.innerWidth  / canvas_num) / 2
-            const CENTER_Y = window.innerHeight / 2
 
-            const ImageX = CENTER_X - START_X
-            const ImageY = CENTER_Y - START_Y
-
-            const ZoomX = Math.round(ImageX * (zoom / pre_zoom))
-            const ZoomY = Math.round(ImageY * (zoom / pre_zoom))
-
-            const DiffX = ZoomX - ImageX
-            const DiffY = ZoomY - ImageY
-
-            START_X = START_X - DiffX
-            START_Y = START_Y - DiffY
+            // 0が押された場合は、座標を左上に合わせる
+            if (e.key === "0") {
+                START_X = 0
+                START_Y = 0
+            }
 
             drawCanvas()
         }

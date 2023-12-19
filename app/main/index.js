@@ -125,10 +125,28 @@ ipcMain.handle("getCmdArgsImage", function (e) {
         // undefineはSKIP
         if (filepath === undefined) continue
 
+        // オプションはスキップする
+        if (filepath.substring(0, 2) ===  "--") continue
+
         // フォルダが入力された場合はskip
         let stats = fs.statSync(filepath)
         if (stats.isDirectory()) {
             console.log(`${filepath} is Directory. So, process is Skip.`)
+            continue
+        }
+
+        // 処理対象の拡張子
+        const process_ext = [
+            ".bmp",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".bin",
+        ]
+
+        // ファイルの拡張子が処理対象であるかを確認
+        if (process_ext.includes(path.extname(filepath)) === false) {
             continue
         }
 
