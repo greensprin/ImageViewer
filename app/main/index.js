@@ -75,9 +75,9 @@ ipcMain.handle("sendDropFile", function (e, args) {
     const config = ini.parse(fs.readFileSync(path.join(pjdir, "/setting/config.ini"), "utf8"));
 
     // コマンド作成
-    const path_list = args
+    const path_list = args // [0]: input, [1]: output
     const script = config.drop.script
-    let cmd = `python ${script} ${path_list[0]} ${path_list[1]}`
+    let cmd = `${script} ${path_list[0]} ${path_list[1]}`
     console.log(cmd)
 
     // コマンド文字列を整形
