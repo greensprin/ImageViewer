@@ -26,6 +26,9 @@ window.addEventListener("load", function () {
             console.log(result[i])
             ResistDictAndDraw(result[i], i)
         }
+
+        canvas_num = result.length
+        addCanvas(canvas_num)
     })
 
     // - ドラッグアンドドロップ動作
@@ -135,8 +138,8 @@ window.addEventListener("load", function () {
                 const ImageX = CENTER_X - START_X
                 const ImageY = CENTER_Y - START_Y
 
-                const ZoomX = Math.round(ImageX * (zoom / pre_zoom))
-                const ZoomY = Math.round(ImageY * (zoom / pre_zoom))
+                const ZoomX = ImageX * (zoom / pre_zoom) // 小数点表示させた方が元画像の倍率が保たれ、差分表示の際に都合が良いためあえてroundなどしない
+                const ZoomY = ImageY * (zoom / pre_zoom) // 小数点表示させた方が元画像の倍率が保たれ、差分表示の際に都合が良いためあえてroundなどしない
 
                 const DiffX = ZoomX - ImageX
                 const DiffY = ZoomY - ImageY
@@ -199,43 +202,41 @@ window.addEventListener("load", function () {
     this.document.onwheel = function(e) {
         // 拡大縮小の上限加減
         const MAX_ZOOM = 50
-        const MIN_ZOOM = 1 // 0.1
+        const MIN_ZOOM = 0.1
 
         // 拡大縮小の選択
         let zoom_ratio = 0
         if (e.deltaY < 0) {
-            zoom_ratio = 1.0
             // 差分がうまく表示できないので、100%ずつ倍率を変更する
-            // if (zoom < 1) {
-            //     zoom_ratio = 0.05
-            // } else if (zoom < 2) {
-            //     zoom_ratio = 0.1
-            // } else if (zoom < 5) {
-            //     zoom_ratio = 0.2
-            // } else if (zoom < 10) {
-            //     zoom_ratio = 0.5
-            // } else {
-            //     zoom_ratio = 1.0
-            // }
+            if (zoom < 1) {
+                zoom_ratio = 0.05
+            } else if (zoom < 2) {
+                zoom_ratio = 0.1
+            } else if (zoom < 5) {
+                zoom_ratio = 0.2
+            } else if (zoom < 10) {
+                zoom_ratio = 0.5
+            } else {
+                zoom_ratio = 1.0
+            }
 
             // すでに最大まで拡大されていたら処理をしない
             if (zoom === MAX_ZOOM) {
                 return
             }
         } else {
-            zoom_ratio = -1.0
             // 差分がうまく表示できないので、100%ずつ倍率を変更する
-            // if (zoom <= 1) {
-            //     zoom_ratio = -0.05
-            // } else if (zoom <= 2) {
-            //     zoom_ratio = -0.1
-            // } else if (zoom <= 5) {
-            //     zoom_ratio = -0.2
-            // } else if (zoom <= 10) {
-            //     zoom_ratio = -0.5
-            // } else {
-            //     zoom_ratio = -1.0
-            // }
+            if (zoom <= 1) {
+                zoom_ratio = -0.05
+            } else if (zoom <= 2) {
+                zoom_ratio = -0.1
+            } else if (zoom <= 5) {
+                zoom_ratio = -0.2
+            } else if (zoom <= 10) {
+                zoom_ratio = -0.5
+            } else {
+                zoom_ratio = -1.0
+            }
 
             // すでに最小まで縮小されていたら処理をしない
             if (zoom === MIN_ZOOM) {
@@ -354,8 +355,8 @@ window.addEventListener("load", function () {
                 const image_height  = target_canvas.height
 
                 // 表示場所計算
-                let dWidth  = Math.round(image_width  * zoom)
-                let dHeight = Math.round(image_height * zoom)
+                let dWidth  = image_width  * zoom // 小数点表示させた方が元画像の倍率が保たれ、差分表示の際に都合が良いためあえてroundなどしない
+                let dHeight = image_height * zoom // 小数点表示させた方が元画像の倍率が保たれ、差分表示の際に都合が良いためあえてroundなどしない
                 MAX_DWIDTH  = Math.max(MAX_DWIDTH , dWidth)  // 小さいサイズの画像に引っ張られてうまく移動できなくなることを防ぐため
                 MAX_DHEIGHT = Math.max(MAX_DHEIGHT, dHeight) // 小さいサイズの画像に引っ張られてうまく移動できなくなることを防ぐため
                 dx = Math.min(canvas.width , Math.max(-MAX_DWIDTH , START_X + MOVE_X))

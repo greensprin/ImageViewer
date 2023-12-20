@@ -128,13 +128,6 @@ ipcMain.handle("getCmdArgsImage", function (e) {
         // オプションはスキップする
         if (filepath.substring(0, 2) ===  "--") continue
 
-        // フォルダが入力された場合はskip
-        let stats = fs.statSync(filepath)
-        if (stats.isDirectory()) {
-            console.log(`${filepath} is Directory. So, process is Skip.`)
-            continue
-        }
-
         // 処理対象の拡張子
         const process_ext = [
             ".bmp",
@@ -145,13 +138,20 @@ ipcMain.handle("getCmdArgsImage", function (e) {
             ".bin",
         ]
 
-        // ファイルの拡張子が処理対象であるかを確認
-        if (process_ext.includes(path.extname(filepath)) === false) {
-            continue
-        }
-
         // ファイルが存在するかを確認（でたらめなパスが設定されているかもしれないので）
         if (fs.existsSync(filepath) === true) {
+            // フォルダが入力された場合はskip
+            let stats = fs.statSync(filepath)
+            if (stats.isDirectory()) {
+                console.log(`${filepath} is Directory. So, process is Skip.`)
+                continue
+            }
+
+            // ファイルの拡張子が処理対象であるかを確認
+            if (process_ext.includes(path.extname(filepath)) === false) {
+                continue
+            }
+
             // 絶対パスに変換
             const filepath_abs = path.resolve(filepath)
 
